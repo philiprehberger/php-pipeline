@@ -165,10 +165,6 @@ class PendingPipeline
                 /** @var Stage $instance */
                 $instance = new $stage;
 
-                if ($this->context !== null) {
-                    return $instance->handle($passable, $next, $this->context);
-                }
-
                 return $instance->handle($passable, $next);
             }
 
