@@ -19,6 +19,9 @@ class PendingPipeline
 
     private ?Closure $failureHandler = null;
 
+    /** @var array<class-string<Throwable>, Closure> */
+    private array $exceptionHandlers = [];
+
     private ?PipelineContext $context = null;
 
     /**
@@ -120,6 +123,22 @@ class PendingPipeline
     }
 
     /**
+     * Register a handler for a specific exception type.
+     *
+     * If the given exception class is thrown by a pipe, the handler is called
+     * with `(Throwable $e, mixed $passable)` and its return value becomes the
+     * new passable. Non-matching exceptions propagate normally.
+     *
+     * @param  class-string<Throwable>  $exceptionClass
+     */
+    public function catchException(string $exceptionClass, callable $handler): self
+    {
+        $this->exceptionHandlers[$exceptionClass] = $handler(...);
+
+        return $this;
+    }
+
+    /**
      * Process the passable through all stages and return the result.
      */
     public function process(): mixed
@@ -176,6 +195,12 @@ class PendingPipeline
         } catch (PipelineException $e) {
             throw $e;
         } catch (Throwable $e) {
+            foreach ($this->exceptionHandlers as $class => $handler) {
+                if ($e instanceof $class) {
+                    return $handler($e, $passable);
+                }
+            }
+
             if ($this->failureHandler !== null) {
                 return ($this->failureHandler)($e, $passable);
             }

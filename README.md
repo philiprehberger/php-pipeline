@@ -120,6 +120,21 @@ $result = Pipeline::send('hello')
 // "HELLO" — tap does not change the payload
 ```
 
+### Typed Exception Handling
+
+Catch specific exception types and recover gracefully:
+
+```php
+$result = Pipeline::send($data)
+    ->through([RiskyStage::class])
+    ->catchException(ValidationException::class, function (\Throwable $e, mixed $passable) {
+        return $passable; // Recover from validation errors only
+    })
+    ->thenReturn();
+
+// Non-matching exceptions propagate normally
+```
+
 ### Error Handling
 
 ```php
@@ -144,6 +159,7 @@ $result = Pipeline::send($data)
 | `->unless(bool $condition, string\|callable $stage)` | Add stage if condition is false |
 | `->withContext(PipelineContext $context)` | Attach shared context passed to stages |
 | `->tap(callable $fn)` | Add a side-effect stage that does not modify the payload |
+| `->catchException(string $class, callable $handler)` | Register a handler for a specific exception type |
 | `->onFailure(callable $handler)` | Register a failure handler |
 | `->process()` | Execute the pipeline and return the result |
 | `->thenReturn()` | Alias for `process()` |
