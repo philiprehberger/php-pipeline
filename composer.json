@@ -2,6 +2,7 @@
     "name": "philiprehberger/php-pipeline",
     "description": "Composable pipeline pattern for processing data through ordered stages",
     "keywords": ["pipeline", "middleware", "stages", "chain", "php"],
+    "homepage": "https://github.com/philiprehberger/php-pipeline",
     "license": "MIT",
     "type": "library",
     "authors": [
@@ -30,6 +31,11 @@
     },
     "config": {
         "sort-packages": true
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "lint": "vendor/bin/pint",
+        "analyse": "vendor/bin/phpstan analyse"
     },
     "minimum-stability": "dev",
     "prefer-stable": true
