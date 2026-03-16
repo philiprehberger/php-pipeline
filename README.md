@@ -2,7 +2,6 @@
 
 [![Tests](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/philiprehberger/php-pipeline.svg)](https://packagist.org/packages/philiprehberger/php-pipeline)
-[![Total Downloads](https://img.shields.io/packagist/dt/philiprehberger/php-pipeline.svg)](https://packagist.org/packages/philiprehberger/php-pipeline)
 [![PHP Version Require](https://img.shields.io/packagist/php-v/philiprehberger/php-pipeline.svg)](https://packagist.org/packages/philiprehberger/php-pipeline)
 [![License](https://img.shields.io/github/license/philiprehberger/php-pipeline)](LICENSE)
 
