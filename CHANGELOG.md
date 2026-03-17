@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-16
+
+### Added
+- `PipelineContext` class for sharing state between pipeline stages
+- `withContext(PipelineContext $context)` method on `PendingPipeline` to attach shared context
+- `tap(callable $fn)` method on `PendingPipeline` for side-effect stages that pass the payload through unchanged
+
 ## [1.0.2] - 2026-03-16
 
 ### Changed

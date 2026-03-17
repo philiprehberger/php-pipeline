@@ -77,6 +77,50 @@ $result = Pipeline::send($data)
     ->process();
 ```
 
+### Pipeline Context
+
+Share state between stages using `PipelineContext`:
+
+```php
+use PhilipRehberger\Pipeline\Pipeline;
+use PhilipRehberger\Pipeline\PipelineContext;
+
+$context = new PipelineContext();
+
+$result = Pipeline::send($data)
+    ->withContext($context)
+    ->through([
+        function (mixed $value, \Closure $next, PipelineContext $ctx) {
+            $ctx->set('started_at', microtime(true));
+            return $next($value);
+        },
+        function (mixed $value, \Closure $next, PipelineContext $ctx) {
+            // Access values set by earlier stages
+            $started = $ctx->get('started_at');
+            return $next($value);
+        },
+    ])
+    ->thenReturn();
+
+// Read context after pipeline completes
+$context->all();
+```
+
+### Tap
+
+Add side-effect stages that observe the payload without modifying it:
+
+```php
+$result = Pipeline::send('hello')
+    ->pipe(fn (string $value, \Closure $next) => $next(strtoupper($value)))
+    ->tap(function (string $value) {
+        logger()->info('After uppercase: ' . $value);
+    })
+    ->thenReturn();
+
+// "HELLO" — tap does not change the payload
+```
+
 ### Error Handling
 
 ```php
@@ -99,6 +143,8 @@ $result = Pipeline::send($data)
 | `->pipe(string\|callable $stage)` | Append a single stage |
 | `->when(bool $condition, string\|callable $stage)` | Add stage if condition is true |
 | `->unless(bool $condition, string\|callable $stage)` | Add stage if condition is false |
+| `->withContext(PipelineContext $context)` | Attach shared context passed to stages |
+| `->tap(callable $fn)` | Add a side-effect stage that does not modify the payload |
 | `->onFailure(callable $handler)` | Register a failure handler |
 | `->process()` | Execute the pipeline and return the result |
 | `->thenReturn()` | Alias for `process()` |

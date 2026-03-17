@@ -19,6 +19,8 @@ class PendingPipeline
 
     private ?Closure $failureHandler = null;
 
+    private ?PipelineContext $context = null;
+
     /**
      * Create a new pending pipeline instance.
      */
@@ -68,6 +70,41 @@ class PendingPipeline
         if (! $condition) {
             $this->stages[] = $stage;
         }
+
+        return $this;
+    }
+
+    /**
+     * Attach a shared context to the pipeline.
+     *
+     * When a context is set, each stage receives the payload and the context
+     * as arguments: `($passable, $context)` for closures, or via the second
+     * parameter of `Stage::handle()`.
+     */
+    public function withContext(PipelineContext $context): static
+    {
+        $this->context = $context;
+
+        return $this;
+    }
+
+    /**
+     * Add a tap stage that performs a side effect without modifying the payload.
+     *
+     * The callable receives the current payload (and context, if set) but its
+     * return value is ignored — the original payload is passed to the next stage.
+     */
+    public function tap(callable $fn): static
+    {
+        $this->stages[] = function (mixed $passable, Closure $next) use ($fn): mixed {
+            if ($this->context !== null) {
+                $fn($passable, $this->context);
+            } else {
+                $fn($passable);
+            }
+
+            return $next($passable);
+        };
 
         return $this;
     }
@@ -128,7 +165,15 @@ class PendingPipeline
                 /** @var Stage $instance */
                 $instance = new $stage;
 
+                if ($this->context !== null) {
+                    return $instance->handle($passable, $next, $this->context);
+                }
+
                 return $instance->handle($passable, $next);
+            }
+
+            if ($this->context !== null) {
+                return $stage($passable, $next, $this->context);
             }
 
             return $stage($passable, $next);
