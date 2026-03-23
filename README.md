@@ -6,23 +6,15 @@
 
 Composable pipeline pattern for processing data through ordered stages.
 
----
-
 ## Requirements
 
-| Dependency | Version |
-|------------|---------|
-| PHP        | ^8.2    |
-
----
+- PHP 8.2+
 
 ## Installation
 
 ```bash
 composer require philiprehberger/php-pipeline
 ```
-
----
 
 ## Usage
 
@@ -146,8 +138,6 @@ $result = Pipeline::send($data)
     ->process();
 ```
 
----
-
 ## API
 
 | Method | Description |
@@ -163,8 +153,6 @@ $result = Pipeline::send($data)
 | `->onFailure(callable $handler)` | Register a failure handler |
 | `->process()` | Execute the pipeline and return the result |
 | `->thenReturn()` | Alias for `process()` |
-
----
 
 ## Development
 
