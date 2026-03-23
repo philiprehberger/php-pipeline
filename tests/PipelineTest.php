@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhilipRehberger\Pipeline\Tests;
 
+use InvalidArgumentException;
 use PhilipRehberger\Pipeline\Exceptions\PipelineException;
 use PhilipRehberger\Pipeline\PendingPipeline;
 use PhilipRehberger\Pipeline\Pipeline;
@@ -13,6 +14,7 @@ use PhilipRehberger\Pipeline\Tests\Fixtures\ThrowingStage;
 use PhilipRehberger\Pipeline\Tests\Fixtures\TrimStage;
 use PhilipRehberger\Pipeline\Tests\Fixtures\UpperCaseStage;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class PipelineTest extends TestCase
 {
@@ -193,5 +195,49 @@ class PipelineTest extends TestCase
             ->thenReturn();
 
         $this->assertSame(7, $result);
+    }
+
+    public function test_tap_does_not_modify_passable(): void
+    {
+        $result = Pipeline::send('hello')
+            ->pipe(UpperCaseStage::class)
+            ->tap(fn (string $value) => strtolower($value))
+            ->thenReturn();
+
+        $this->assertSame('HELLO', $result);
+    }
+
+    public function test_tap_callback_receives_current_value(): void
+    {
+        $captured = null;
+
+        Pipeline::send('hello')
+            ->pipe(UpperCaseStage::class)
+            ->tap(function (string $value) use (&$captured) {
+                $captured = $value;
+            })
+            ->thenReturn();
+
+        $this->assertSame('HELLO', $captured);
+    }
+
+    public function test_catch_exception_catches_matching_type(): void
+    {
+        $result = Pipeline::send('original')
+            ->pipe(fn (mixed $value, \Closure $next) => throw new RuntimeException('boom'))
+            ->catchException(RuntimeException::class, fn (\Throwable $e, mixed $passable) => 'caught: '.$passable)
+            ->thenReturn();
+
+        $this->assertSame('caught: original', $result);
+    }
+
+    public function test_catch_exception_does_not_catch_non_matching_type(): void
+    {
+        $this->expectException(PipelineException::class);
+
+        Pipeline::send('data')
+            ->pipe(fn (mixed $value, \Closure $next) => throw new RuntimeException('boom'))
+            ->catchException(InvalidArgumentException::class, fn (\Throwable $e, mixed $passable) => 'caught')
+            ->thenReturn();
     }
 }
