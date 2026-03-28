@@ -6,6 +6,7 @@ namespace PhilipRehberger\Pipeline;
 
 use Closure;
 use PhilipRehberger\Pipeline\Contracts\Stage;
+use PhilipRehberger\Pipeline\Exceptions\CheckpointFailedException;
 use PhilipRehberger\Pipeline\Exceptions\PipelineException;
 use Throwable;
 
@@ -24,11 +25,16 @@ class PendingPipeline
 
     private ?PipelineContext $context = null;
 
+    private bool $profiling = false;
+
+    /** @var array<int, array{name: string, duration_ms: float, memory_delta: int}> */
+    private array $profileData = [];
+
     /**
      * Create a new pending pipeline instance.
      */
     public function __construct(
-        private readonly mixed $passable,
+        private mixed $passable,
     ) {}
 
     /**
@@ -113,6 +119,43 @@ class PendingPipeline
     }
 
     /**
+     * Insert a validation checkpoint between stages.
+     *
+     * The validator receives the current value and should return true to continue,
+     * or false/throw to abort the pipeline.
+     */
+    public function checkpoint(callable $validator): self
+    {
+        $this->stages[] = function (mixed $passable, Closure $next) use ($validator): mixed {
+            try {
+                $result = $validator($passable);
+            } catch (Throwable $e) {
+                throw new CheckpointFailedException(
+                    'Pipeline checkpoint failed: '.$e->getMessage(),
+                );
+            }
+
+            if ($result === false) {
+                throw new CheckpointFailedException;
+            }
+
+            return $next($passable);
+        };
+
+        return $this;
+    }
+
+    /**
+     * Enable profiling mode for the pipeline.
+     */
+    public function profile(): self
+    {
+        $this->profiling = true;
+
+        return $this;
+    }
+
+    /**
      * Register a failure handler for the pipeline.
      */
     public function onFailure(callable $handler): self
@@ -147,11 +190,34 @@ class PendingPipeline
     }
 
     /**
+     * Process the pipeline and return a ProfiledResult with timing data.
+     */
+    public function processWithProfile(): ProfiledResult
+    {
+        $this->profiling = true;
+        $this->profileData = [];
+
+        $result = $this->execute();
+
+        return new ProfiledResult($result, $this->profileData);
+    }
+
+    /**
      * Alias for process — run the pipeline and return the result.
      */
     public function thenReturn(): mixed
     {
         return $this->execute();
+    }
+
+    /**
+     * Set the passable value (used by templates).
+     */
+    public function send(mixed $passable): self
+    {
+        $this->passable = $passable;
+
+        return $this;
     }
 
     /**
@@ -180,6 +246,51 @@ class PendingPipeline
         $stageName = is_string($stage) ? $stage : 'Closure';
 
         try {
+            if ($this->profiling) {
+                $profileIndex = count($this->profileData);
+                $this->profileData[$profileIndex] = [
+                    'name' => $stageName,
+                    'duration_ms' => 0.0,
+                    'memory_delta' => 0,
+                ];
+
+                $memBefore = memory_get_usage();
+                $timeBefore = hrtime(true);
+
+                $wrappedNext = function (mixed $value) use ($next, $profileIndex, &$timeBefore, &$memBefore): mixed {
+                    $timeAfter = hrtime(true);
+                    $memAfter = memory_get_usage();
+
+                    $this->profileData[$profileIndex]['duration_ms'] += ($timeAfter - $timeBefore) / 1_000_000;
+                    $this->profileData[$profileIndex]['memory_delta'] += $memAfter - $memBefore;
+
+                    $result = $next($value);
+
+                    $memBefore = memory_get_usage();
+                    $timeBefore = hrtime(true);
+
+                    return $result;
+                };
+
+                if (is_string($stage)) {
+                    /** @var Stage $instance */
+                    $instance = new $stage;
+                    $result = $instance->handle($passable, $wrappedNext);
+                } elseif ($this->context !== null) {
+                    $result = $stage($passable, $wrappedNext, $this->context);
+                } else {
+                    $result = $stage($passable, $wrappedNext);
+                }
+
+                $timeAfter = hrtime(true);
+                $memAfter = memory_get_usage();
+
+                $this->profileData[$profileIndex]['duration_ms'] += ($timeAfter - $timeBefore) / 1_000_000;
+                $this->profileData[$profileIndex]['memory_delta'] += $memAfter - $memBefore;
+
+                return $result;
+            }
+
             if (is_string($stage)) {
                 /** @var Stage $instance */
                 $instance = new $stage;

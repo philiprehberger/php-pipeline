@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-27
+
+### Added
+- Stage profiling via `processWithProfile()` with per-stage timing and memory tracking
+- Validation checkpoints via `checkpoint()` for mid-pipeline validation
+- Pipeline templates via `Pipeline::register()` and `Pipeline::fromTemplate()`
+
 ## [1.2.1] - 2026-03-23
 
 ### Changed

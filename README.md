@@ -1,8 +1,12 @@
 # PHP Pipeline
 
-[![Tests](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml)
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/philiprehberger/php-pipeline.svg)](https://packagist.org/packages/philiprehberger/php-pipeline)
+[![CI](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/philiprehberger/php-pipeline/actions/workflows/tests.yml)
+[![Packagist Version](https://img.shields.io/packagist/v/philiprehberger/php-pipeline.svg)](https://packagist.org/packages/philiprehberger/php-pipeline)
+[![GitHub Release](https://img.shields.io/github/v/release/philiprehberger/php-pipeline)](https://github.com/philiprehberger/php-pipeline/releases)
+[![Last Updated](https://img.shields.io/github/last-commit/philiprehberger/php-pipeline)](https://github.com/philiprehberger/php-pipeline/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/php-pipeline)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/php-pipeline/bug)](https://github.com/philiprehberger/php-pipeline/issues?q=label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/php-pipeline/enhancement)](https://github.com/philiprehberger/php-pipeline/issues?q=label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Composable pipeline pattern for processing data through ordered stages.
@@ -113,6 +117,59 @@ $result = Pipeline::send('hello')
 // "HELLO" — tap does not change the payload
 ```
 
+### Validation Checkpoints
+
+Insert validation steps between stages to abort the pipeline on invalid data:
+
+```php
+$result = Pipeline::send(10)
+    ->pipe(fn (mixed $value, \Closure $next) => $next($value * 2))
+    ->checkpoint(fn (mixed $value) => $value <= 100)
+    ->pipe(fn (mixed $value, \Closure $next) => $next($value + 1))
+    ->process();
+
+// 21
+```
+
+If the checkpoint returns false or throws, a `CheckpointFailedException` is thrown.
+
+### Stage Profiling
+
+Profile stage execution time and memory usage:
+
+```php
+use PhilipRehberger\Pipeline\Pipeline;
+
+$result = Pipeline::send('hello')
+    ->pipe(UpperCaseStage::class)
+    ->pipe(AppendSuffixStage::class)
+    ->processWithProfile();
+
+$result->value();         // "HELLO_suffix"
+$result->stages();        // [{name, duration_ms, memory_delta}, ...]
+$result->totalDuration(); // Total ms across all stages
+$result->slowestStage();  // Name of the slowest stage
+```
+
+### Pipeline Templates
+
+Register reusable pipeline configurations:
+
+```php
+use PhilipRehberger\Pipeline\Pipeline;
+
+Pipeline::register('text-cleanup', function (PendingPipeline $p) {
+    $p->pipe(TrimStage::class)
+      ->pipe(UpperCaseStage::class);
+});
+
+$result = Pipeline::fromTemplate('text-cleanup')
+    ->send('  hello  ')
+    ->thenReturn();
+
+// "HELLO"
+```
+
 ### Typed Exception Handling
 
 Catch specific exception types and recover gracefully:
@@ -144,15 +201,21 @@ $result = Pipeline::send($data)
 | Method | Description |
 |--------|-------------|
 | `Pipeline::send(mixed $passable)` | Create a new pipeline with the given data |
+| `Pipeline::register(string $name, callable $builder)` | Register a reusable pipeline template |
+| `Pipeline::fromTemplate(string $name)` | Create a pipeline from a registered template |
+| `Pipeline::hasTemplate(string $name)` | Check if a template is registered |
 | `->through(array $stages)` | Set the array of stages |
 | `->pipe(string\|callable $stage)` | Append a single stage |
 | `->when(bool $condition, string\|callable $stage)` | Add stage if condition is true |
 | `->unless(bool $condition, string\|callable $stage)` | Add stage if condition is false |
 | `->withContext(PipelineContext $context)` | Attach shared context passed to stages |
 | `->tap(callable $fn)` | Add a side-effect stage that does not modify the payload |
+| `->checkpoint(callable $validator)` | Insert a validation checkpoint between stages |
+| `->profile()` | Enable profiling mode |
 | `->catchException(string $class, callable $handler)` | Register a handler for a specific exception type |
 | `->onFailure(callable $handler)` | Register a failure handler |
 | `->process()` | Execute the pipeline and return the result |
+| `->processWithProfile()` | Execute and return a `ProfiledResult` with timing data |
 | `->thenReturn()` | Alias for `process()` |
 
 ## Development
@@ -161,9 +224,13 @@ $result = Pipeline::send($data)
 composer install
 vendor/bin/phpunit
 vendor/bin/pint --test
-vendor/bin/phpstan analyse
 ```
+
+## Support
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Philip%20Rehberger-blue?logo=linkedin)](https://www.linkedin.com/in/philiprehberger/)
+[![Packages](https://img.shields.io/badge/All%20Packages-philiprehberger-blue?logo=github)](https://github.com/philiprehberger/packages)
 
 ## License
 
-MIT
+[MIT](LICENSE)
